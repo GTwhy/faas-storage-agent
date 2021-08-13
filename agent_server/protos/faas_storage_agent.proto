@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.fass_storage_agent";
+option java_outer_classname = "FaasStorageAgentProto";
+option objc_class_prefix = "RTG";
+
+package faas_storage_agent;
+
+// Interface exported by the server
+service faas_storage_agent{
+
+  //Create a namespace.
+  rpc create_ns (ns_req) returns (ns_resp);
+
+  //Delete a namespace.
+  rpc delete_ns (ns_req) returns (ns_resp);
+
+  //Connect to a namespace.
+  rpc connect_ns (ns_req) returns (ns_resp);
+
+  //Stores a key-value pair.
+  rpc set (data_req) returns (data_resp);
+
+  //Get the value according to the key.
+  rpc get (data_req) returns (data_resp);
+
+  //Delete the key-value pair.
+  rpc del (data_req) returns (data_resp);
+
+  //Query whether the key exists.
+  rpc exists (data_req) returns (data_resp);
+
+}
+
+//A request message for namespace-related operation.
+message ns_req{
+  //Required.
+  //Name of the namespace.
+  string name = 1;
+  //Optional
+  //The password of the namespace.If it is set when the namespace is created, you need to enter it for subsquent operations of ns.
+  string password = 2;
+}
+
+
+message ns_resp {
+  //Required
+  //Returns 0 if the operation is successful, error_code otherwise.
+  int32 error_code = 1;
+  //Optional
+  //Information about the failed operation.
+  string err_info = 2;
+}
+
+message data_req {
+  //Required
+  string key = 1;
+  //Optional
+  bytes value = 2;
+}
+
+message data_resp{
+  //Required
+  string key = 1;
+  //Optional
+  bytes value = 2;
+  //Optional
+  //Returns 0 if the operation is successful, error_code otherwise.
+  int32 error_code = 3;
+  //Optional
+  //Information about the failed operation.
+  string err_info = 4;
+}
