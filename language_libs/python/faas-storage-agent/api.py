@@ -1,10 +1,10 @@
 '''
 Author: why
 Date: 2021-07-18 11:00:18
-LastEditTime: 2021-08-12 20:03:39
+LastEditTime: 2021-08-13 19:48:51
 LastEditors: why
 Description: 
-FilePath: /sa/language_libs/python/faas-storage-agent/api.py
+FilePath: /master/language_libs/python/faas-storage-agent/api.py
 
 '''
 from logging import critical, setLoggerClass
@@ -102,7 +102,6 @@ if __name__ == '__main__':
     a = Agent()
     ns_name = "test_ns"
     a.create_ns(ns_name)
-    a.connect_ns(ns_name)
     a.connect_ns(ns_name)
     rand = str(random.randint(1,1000))
     key = "test_key_" + rand
