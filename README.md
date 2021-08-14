@@ -61,7 +61,6 @@ https://gitee.com/openeuler-competition/summer-2021/issues/I3S1DY
 3. 运行测试函数(模拟Serverless函数)   
 
     项目的最终要求是将存储api包装成为语言库使用，当前项目开发过程中为测试方便还未打包，而是将测试程序放在库函数文件中运行。    
-
         ```
         cd language_libs/python/faas-storage-agent
         python3 api.py
