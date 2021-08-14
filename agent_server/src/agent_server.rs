@@ -1,10 +1,10 @@
 /*
  * @Author: why
  * @Date: 2021-07-31 16:58:16
- * @LastEditTime: 2021-08-13 14:52:05
+ * @LastEditTime: 2021-08-14 17:19:06
  * @LastEditors: why
  * @Description: 
- * @FilePath: /sa/agent_server/src/agent_server.rs
+ * @FilePath: /master/agent_server/src/agent_server.rs
  * 
  */
 
@@ -14,7 +14,7 @@ mod faas_storage_agent;
 mod faas_storage_agent_grpc;
 use std::collections::HashMap;
 use std::io::Read;
-use std::sync::Arc;
+use std::sync::{Mutex, Arc};
 use std::time::SystemTime;
 use std::{io, thread};
 use faas_storage_agent::*;
@@ -44,10 +44,10 @@ struct AuthenticationInfo{
     scope: Vec<String>
 }
 
-#[derive(PartialEq,Clone,Default,Debug)]
+#[derive(Clone,Default,Debug)]
 struct AgentService{
     backend_name: String,
-    client_cache: HashMap<String, ClientInfo>
+    client_cache: Arc<Mutex<HashMap<String, ClientInfo>>>,
 }
 
 impl AgentService {
@@ -56,14 +56,14 @@ impl AgentService {
     }
 
     fn cache_client_info(&mut self, token: &str, auth_info: AuthenticationInfo, ns: &Namespace) {
-        self.client_cache.insert(token.to_string(), ClientInfo{
+        let mut map = self.client_cache.lock().unwrap();
+        map.insert(token.to_string(), ClientInfo{
             token: token.to_string(),
             client_id: auth_info.client_id,
             lifetime: auth_info.lifetime,
             scope: auth_info.scope,
             current_ns: ns.clone(),
         });
-        println!("after cache : {:?}", self.client_cache.get(&token.to_string()));
     }
 
     fn update_client_cache(&mut self,mut client_info: ClientInfo, new_ns_name: &str) ->Result<ClientInfo, bool> {
@@ -71,8 +71,9 @@ impl AgentService {
         let mut nsm = storage_ns::NsManager::new(&md);
         if let Ok(new_ns) = nsm.get_backend_ns(client_info.client_id.as_str(),  new_ns_name){
             client_info.current_ns = new_ns;
-            self.client_cache.remove(&client_info.token);
-            self.client_cache.insert(client_info.token.clone(), client_info.clone());
+            let mut map = self.client_cache.lock().unwrap();
+            map.remove(&client_info.token);
+            map.insert(client_info.token.clone(), client_info.clone());
             Ok(client_info)
         }
         else {
@@ -98,24 +99,21 @@ impl AgentService {
     
     fn get_client_cache(&mut self, token: &str) -> Result<ClientInfo, bool> {
         if let Ok(client_info) = self.is_client_alive(token){
-            println!("get cache successfully");
             return Ok(client_info)
         }
-        println!("get cache failed");
         Err(false)
     }
 
     fn is_client_alive(&mut self, token: &str) -> Result<ClientInfo, bool> {
-        if let Some(client) = self.client_cache.get(&token.to_string()){
-            println!("is client alive = {:?}", client);
+        let mut map = self.client_cache.lock().unwrap();
+        if let Some(client) = map.get(&token.to_string()){
             if let Ok(dur) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH){
                 let now = dur.as_secs();
-                println!("now : {}  lifetime {}", now, client.lifetime);
                 if now < client.lifetime {
                     return Ok(client.to_owned())
                 }
                 else {
-                    self.client_cache.remove(token);
+                    map.remove(token);
                 }
             }
         }
@@ -145,7 +143,6 @@ impl FaasStorageAgent for AgentService {
         let resp: ns_resp;
         //Hit cache
         if let Ok(client_info) = self.check_get_client_cache(req.get_token(), req.get_name()) {
-            println!("Hit cache {:?}", client_info);
             match self.backend_name.as_str() {
                 "Redis" => resp = redis_sa::connect_ns(client_info.current_ns),
                 _ => resp = new_err_ns_resp(4, "Error backen_name"),
@@ -185,7 +182,6 @@ impl FaasStorageAgent for AgentService {
         let mut nsm = storage_ns::NsManager::new(&md);
         //Hit cache
         if let Ok(client_info) = self.check_get_client_cache(req.get_token(), req.get_name()) {
-            println!("Hit cache {:?}", client_info);
             match self.backend_name.as_str() {
                 "Redis" => {
                     if nsm.new_backend_ns(client_info.client_id.as_str(),  req.get_name(), backend){
@@ -205,7 +201,7 @@ impl FaasStorageAgent for AgentService {
             if let Ok(auth_info) = validate_token(req.get_token()) {
                 if nsm.new_backend_ns(auth_info.client_id.as_str(),  req.get_name(), backend){
                     resp.set_err_code(0);
-                    resp.set_err_info("Create ns succ".to_string());
+                    resp.set_err_info("create ns successfully".to_string());
                 }
                 else {
                     resp = new_err_ns_resp(3, "can not create this namespace")
@@ -229,7 +225,6 @@ impl FaasStorageAgent for AgentService {
         let mut nsm = storage_ns::NsManager::new(&md);
         //Hit cache
         if let Ok(client_info) = self.check_get_client_cache(req.get_token(), req.get_name()) {
-            println!("Hit cache {:?}", client_info);
             nsm.delete_backend_ns(&client_info.current_ns);
         }
         //Cache miss
@@ -266,7 +261,6 @@ impl FaasStorageAgent for AgentService {
         let resp: data_resp;
         //Hit cache
         if let Ok(client_info) = self.get_client_cache(req.get_token()) {
-            println!("Hit cache {:?}", client_info);
             match self.backend_name.as_str() {
                 "Redis" => resp = redis_sa::set(&req, client_info.current_ns),
                 _ => resp = new_err_data_resp(4, "Error backen_name"),
@@ -374,14 +368,14 @@ fn main() {
 }
 
 
-fn validate_token(token: &str) -> Result<AuthenticationInfo, bool> {
-    let client_id = env!("sas_client_id");
-    let client_secret = env!("sas_client_secret");
-    let credential= format!("{}:{}", client_id, client_secret);
-    //println!("{}",credential);
-    let credential_base64 = base64::encode(credential.as_bytes());
-    let auth_content = "Basic ".to_string() + &credential_base64;
-    let body = "token:".to_string() + token;
+fn validate_token(_token: &str) -> Result<AuthenticationInfo, bool> {
+    // let client_id = env!("sas_client_id");
+    // let client_secret = env!("sas_client_secret");
+    // let credential= format!("{}:{}", client_id, client_secret);
+    // //println!("{}",credential);
+    // let credential_base64 = base64::encode(credential.as_bytes());
+    // let auth_content = "Basic ".to_string() + &credential_base64;
+    // let body = "token:".to_string() + token;
     // let req_client = reqwest::blocking::Client::new();
     // let res = req_client.post("http://127.0.0.1:10087/o/introspect/")
     //     .body(body)

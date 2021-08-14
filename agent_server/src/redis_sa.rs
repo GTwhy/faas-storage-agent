@@ -3,10 +3,10 @@ use std::collections::HashMap;
 /*
  * @Author: why
  * @Date: 2021-08-03 21:38:29
- * @LastEditTime: 2021-08-12 17:22:32
+ * @LastEditTime: 2021-08-13 19:49:47
  * @LastEditors: why
  * @Description: 
- * @FilePath: /sa/agent_server/src/redis_sa.rs
+ * @FilePath: /master/agent_server/src/redis_sa.rs
  * 
  */
  
@@ -118,11 +118,16 @@ pub fn exists(req: &data_req, _ns: Namespace) -> data_resp {
     let md = Metadata::default();
     let url = md.get_url();
     let mut client = redis::Client::open(url).unwrap();
-    let rv: String = client.exists(get_prefix(&_ns) + req.get_key()).unwrap();
+    let rv: bool = client.exists(get_prefix(&_ns) + req.get_key()).unwrap();
     let mut resp = data_resp::default();
-    resp.set_err_code(0);
-    resp.set_value(rv.into_bytes());
-    resp.set_err_info(String::from("exists successfully"));
+    if rv {
+        resp.set_err_code(0);
+        resp.set_err_info(String::from("It exists"));
+    }
+    else{
+        resp.set_err_code(1);
+        resp.set_err_info(String::from("It doesn't exist"));
+    }
     resp
 }
 
@@ -130,9 +135,15 @@ pub fn delete(req: &data_req, _ns: Namespace) -> data_resp {
     let md = Metadata::default();
     let url = md.get_url();
     let mut client = redis::Client::open(url).unwrap();
-    let _rv: String = client.del(get_prefix(&_ns) + req.get_key()).unwrap();
+    let rv: bool = client.del(get_prefix(&_ns) + req.get_key()).unwrap();
     let mut resp = data_resp::default();
-    resp.set_err_code(0);
-    resp.set_err_info(String::from("delete successfully"));
+    if rv {
+        resp.set_err_code(0);
+        resp.set_err_info(String::from("delete successfully"));
+    }
+    else{
+        resp.set_err_code(1);
+        resp.set_err_info(String::from("It doesn't exist"));
+    }
     resp
 }
