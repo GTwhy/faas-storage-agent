@@ -1,0 +1,3 @@
+requests>=2.2.0
+grpcio>=1.30.0
+grpcio_tools>=1.30.0

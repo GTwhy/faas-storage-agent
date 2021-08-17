@@ -11,8 +11,8 @@ from logging import critical, setLoggerClass
 import grpc
 from requests.api import head
 from requests.sessions import PreparedRequest
-import faas_storage_agent_pb2
-import faas_storage_agent_pb2_grpc
+from . import faas_storage_agent_pb2
+from . import faas_storage_agent_pb2_grpc
 import os
 import base64
 import requests, json

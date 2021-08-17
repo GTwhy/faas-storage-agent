@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import faas_storage_agent_pb2 as faas__storage__agent__pb2
+from . import faas_storage_agent_pb2 as faas__storage__agent__pb2
 
 
 class faas_storage_agentStub(object):
