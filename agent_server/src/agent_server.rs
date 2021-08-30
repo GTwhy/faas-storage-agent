@@ -1,7 +1,7 @@
 /*
  * @Author: why
  * @Date: 2021-07-31 16:58:16
- * @LastEditTime: 2021-08-14 17:19:06
+ * @LastEditTime: 2021-08-15 04:19:53
  * @LastEditors: why
  * @Description: 
  * @FilePath: /master/agent_server/src/agent_server.rs
@@ -13,7 +13,7 @@ mod redis_sa;
 mod faas_storage_agent;
 mod faas_storage_agent_grpc;
 use std::collections::HashMap;
-use std::io::Read;
+use std::process::exit;
 use std::sync::{Mutex, Arc};
 use std::time::SystemTime;
 use std::{io, thread};
@@ -236,6 +236,7 @@ impl FaasStorageAgent for AgentService {
                     self.cache_client_info(req.get_token(), auth_info.clone(), &ns);
                     if nsm.delete_backend_ns(&ns) {
                         resp.set_err_code(0);
+                        resp.set_err_info("delete ns successfully".to_string());
                     }
                     else {
                         resp = new_err_ns_resp(3, "can delete this namespace")
@@ -350,32 +351,32 @@ fn main() {
     let env = Arc::new(Environment::new(1));
     let mut server = ServerBuilder::new(env)
         .register_service(svc)
-        .bind("127.0.0.1", 10086)
+        .bind("0.0.0.0", 10086)
         .build()
         .unwrap();
     server.start();
     for (host, port) in server.bind_addrs() {
         println!("listening on {}:{}", host, port);
     }
-    let (tx, rx) = oneshot::channel();
-    thread::spawn(move || {
-        println!("Press ENTER to exit...");
-        let _ = io::stdin().read(&mut [0]).unwrap();
-        tx.send(())
-    });
-    let _ = block_on(rx);
-    let _ = block_on(server.shutdown());
+    ctrlc::set_handler(move || {
+        println!("bye...");
+        let _ = block_on(server.shutdown());
+        exit(0);
+    }).expect("Error setting Ctrl-C handler");
+    loop {
+        thread::sleep_ms(100000);
+    }
 }
 
 
 fn validate_token(_token: &str) -> Result<AuthenticationInfo, bool> {
-    // let client_id = env!("sas_client_id");
-    // let client_secret = env!("sas_client_secret");
-    // let credential= format!("{}:{}", client_id, client_secret);
-    // //println!("{}",credential);
-    // let credential_base64 = base64::encode(credential.as_bytes());
-    // let auth_content = "Basic ".to_string() + &credential_base64;
-    // let body = "token:".to_string() + token;
+    let client_id = env!("sas_client_id");
+    let client_secret = env!("sas_client_secret");
+    let credential= format!("{}:{}", client_id, client_secret);
+    //println!("{}",credential);
+    let credential_base64 = base64::encode(credential.as_bytes());
+    let auth_content = "Basic ".to_string() + &credential_base64;
+    // let body = "token:".to_string() + _token;
     // let req_client = reqwest::blocking::Client::new();
     // let res = req_client.post("http://127.0.0.1:10087/o/introspect/")
     //     .body(body)
