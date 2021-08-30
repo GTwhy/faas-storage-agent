@@ -18,6 +18,10 @@ grpcio-proto = "0.9.0"
 redis = "0.21.0"
 base64 = "0.13.0"
 reqwest = {version = "0.11.4", features = ["blocking"]}
+ctrlc = "3.2.0"
+openssl-sys = "0.9"
+openssl = "0.10"
+
 
 [build-dependencies]
 protoc-grpcio = "3.0.0"
