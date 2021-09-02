@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: sa-ds
+  namespace: openfaas-fn
+  labels:
+    k8s-app: sa-ds-test
+spec:
+  selector:
+    matchLabels:
+      name: sa-ds
+  template:
+    metadata:
+      labels:
+        name: sa-ds
+    spec:
+      containers:
+      - name: sa-ds
+        image: whysdocker/sa-aarch64:latest
+        ports:
+        - protocol: TCP
+          containerPort: 10086

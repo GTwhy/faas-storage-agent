@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: sa-ds
-        image: whysdocker/sa:latest
+        image: whysdocker/sa-x86_64:latest
         ports:
         - protocol: TCP
           containerPort: 10086
