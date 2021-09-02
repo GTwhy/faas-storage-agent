@@ -17,4 +17,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cd ${GITHUB_WORKSPACE}/agent_server cargo build --verbose
+      run: cd ${GITHUB_WORKSPACE}/agent_server && cargo build --verbose
