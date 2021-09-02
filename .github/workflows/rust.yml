@@ -1,10 +1,10 @@
 name: Rust
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
   workflow_dispatch:
     branches: [ master ]
 
@@ -13,8 +13,33 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted, linux, arm64]
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cd ${GITHUB_WORKSPACE}/agent_server && cargo build --verbose
+    - name: Build agent
+      run: |
+        pushd ${GITHUB_WORKSPACE}/agent_server
+        cargo build
+        popd
+            
+    - name: Test agent
+      run: |
+        pushd ${GITHUB_WORKSPACE}/agent_server
+        cargo test
+        popd    
+
+    - name: Build and push agent docker image
+      run: |
+        image_name="whysdocker/sa-`arch`:latest"
+        pushd ${GITHUB_WORKSPACE}/docker/agent/
+        docker build -t $image_name .
+        docker push $image_name
+        popd
+      
+    - name: Update agent docker image in kubernetes
+      run: |
+        yaml="agent-ds-`arch`.yaml"
+        pushd ${GITHUB_WORKSPACE}/yaml
+        kubectl delete daemonset sa-ds -n openfaas-fn
+        kubectl create -f $yaml
+        popd
