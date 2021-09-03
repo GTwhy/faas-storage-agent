@@ -32,14 +32,14 @@ jobs:
       run: |
         image_name="whysdocker/sa-`arch`:latest"
         pushd ${GITHUB_WORKSPACE}/docker/agent/
-        docker build -t $image_name .
-        docker push $image_name
+        sudo docker build -t $image_name .
+        sudo docker push $image_name
         popd
       
     - name: Update agent docker image in kubernetes
       run: |
         yaml="agent-ds-`arch`.yaml"
         pushd ${GITHUB_WORKSPACE}/yaml
-        kubectl delete daemonset sa-ds -n openfaas-fn
-        kubectl create -f $yaml
+        sudo kubectl delete daemonset sa-ds -n openfaas-fn
+        sudo kubectl create -f $yaml
         popd
