@@ -38,7 +38,6 @@ jobs:
       run: |
         image_name="whysdocker/sa-`arch`:latest"
         pushd ${GITHUB_WORKSPACE}/docker/agent/
-        sudo docker login
         sudo docker build -t $image_name .
         sudo docker push $image_name
         popd
