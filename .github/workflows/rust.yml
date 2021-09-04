@@ -28,15 +28,16 @@ jobs:
         cargo test
         popd    
         
-    # - name: Login to Docker Hub
-    #     uses: docker/login-action@v1
-    #     with:
-    #       username: ${{ secrets.DOCKERHUB_USERNAME }}
-    #       password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build and push agent docker image
       run: |
-        image_name="whysdocker/sa-`arch`:latest"
+        arch=`arch`
+        image_name="whysdocker/sa-${arch}:latest"
         pushd ${GITHUB_WORKSPACE}/docker/agent/
         sudo docker build -t $image_name .
         sudo docker push $image_name
@@ -44,7 +45,8 @@ jobs:
       
     - name: Update agent docker image in kubernetes
       run: |
-        yaml="agent-ds-`arch`.yaml"
+        arch=`arch`
+        yaml="agent-ds-${arch}.yaml"
         pushd ${GITHUB_WORKSPACE}/yaml
         sudo kubectl delete daemonset sa-ds -n openfaas-fn
         sudo kubectl create -f $yaml
