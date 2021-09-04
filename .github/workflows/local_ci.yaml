@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+  workflow_dispatch:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    runs-on: [self-hosted, linux, x86, master]
+    steps:
+    - name: Build && test agent
+      run: |
+        sudo pushd /root/faasa/master/agent_server/
+        sudo cargo build
+        sudo cargo test
+        sudo popd
+
+    - name: Login to Docker Hub
+      run: sudo docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push agent docker image
+      run: |
+        arch=`arch`
+        image_name="whysdocker/sa-${arch}:latest"
+        sudo pushd /root/faasa/master/docker/agent/
+        sudo mv /root/faasa/master/agent_server/target/debug/agent_server ./app/
+        sudo docker build -t $image_name .
+        sudo docker push $image_name
+        sudo popd
+      
+    - name: Update agent docker image in kubernetes
+      run: |
+        arch=`arch`
+        yaml="agent-ds-${arch}.yaml"
+        sudo pushd /root/faasa/master/yaml
+        sudo kubectl delete daemonset sa-ds -n openfaas-fn
+        sudo kubectl create -f $yaml
+        sudo popd
