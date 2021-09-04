@@ -13,7 +13,7 @@ env:
 
 jobs:
   ci:
-    runs-on: [self-hosted, linux, arm64]
+    runs-on: [self-hosted, linux, arm64, master]
     steps:
     - uses: actions/checkout@v2
     - name: Build agent
