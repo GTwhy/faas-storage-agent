@@ -14,13 +14,21 @@ env:
 jobs:
   ci:
     runs-on: [self-hosted, linux, X64, master]
+    env:
+      workdir: ~/sumemr-2021-151
     steps:
+    - name: Git pull
+      run: |
+        pushd ${workdir}
+        git pull
+        popd
+
     - name: Build && test agent
       run: |
-        sudo pushd /root/faasa/master/agent_server/
-        sudo cargo build
-        sudo cargo test
-        sudo popd
+        pushd ${workdir}/agent_server/
+        cargo build
+        cargo test
+        popd
 
     - name: Login to Docker Hub
       run: sudo docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
@@ -29,17 +37,17 @@ jobs:
       run: |
         arch=`arch`
         image_name="whysdocker/sa-${arch}:latest"
-        sudo pushd /root/faasa/master/docker/agent/
-        sudo mv /root/faasa/master/agent_server/target/debug/agent_server ./app/
+        pushd ${workdir}/docker/agent/
+        mv ${workdir}/agent_server/target/debug/agent_server ./app/
         sudo docker build -t $image_name .
         sudo docker push $image_name
-        sudo popd
+        popd
       
     - name: Update agent docker image in kubernetes
       run: |
         arch=`arch`
         yaml="agent-ds-${arch}.yaml"
-        sudo pushd /root/faasa/master/yaml
+        pushd ${workdir}/yaml
         sudo kubectl delete daemonset sa-ds -n openfaas-fn
         sudo kubectl create -f $yaml
-        sudo popd
+        popd
