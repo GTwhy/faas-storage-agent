@@ -29,7 +29,7 @@ pub struct NsManager{
 
 impl NsManager {
     pub fn new(md: &Metadata) -> NsManager{
-        let url = md.get_url();
+        let url = md.get_remote_url();
         let client = redis::Client::open(url).unwrap();
         let connection = client.get_connection().unwrap();
         NsManager{connection}
