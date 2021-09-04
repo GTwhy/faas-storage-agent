@@ -39,6 +39,7 @@ jobs:
         arch=`arch`
         image_name="whysdocker/sa-${arch}:latest"
         pushd ${GITHUB_WORKSPACE}/docker/agent/
+        mv ${GITHUB_WORKSPACE}/agent_server/target/debug/agent_server ./app/
         sudo docker build -t $image_name .
         sudo docker push $image_name
         popd
