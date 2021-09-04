@@ -15,7 +15,7 @@ jobs:
   ci:
     runs-on: [self-hosted, linux, X64, master]
     env:
-      workdir: ~/summer2021-151
+      workdir: /home/action/summer2021-151
     steps:
     - name: Git pull
       run: |
