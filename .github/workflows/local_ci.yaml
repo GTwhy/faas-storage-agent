@@ -13,7 +13,7 @@ env:
 
 jobs:
   ci:
-    runs-on: [self-hosted, linux, x86, master]
+    runs-on: [self-hosted, linux, X64, master]
     steps:
     - name: Build && test agent
       run: |
