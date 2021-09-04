@@ -48,7 +48,7 @@ jobs:
       run: |
         arch=`arch`
         yaml="agent-ds-${arch}.yaml"
-        pushd ${workdir}/yaml
+        pushd ${workdir}/yaml/agent/
         sudo kubectl delete daemonset sa-ds -n openfaas-fn
         sudo kubectl create -f $yaml
         popd
