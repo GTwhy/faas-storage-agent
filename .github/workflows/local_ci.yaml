@@ -1,10 +1,10 @@
 name: CI_LOCAL
 
 on:
-  # push:
-  #   branches: [ master ]
-  # pull_request:
-  #   branches: [ master ]
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
   workflow_dispatch:
     branches: [ master ]
 
@@ -23,7 +23,7 @@ jobs:
         git pull
         popd
 
-    - name: Build && test agent
+    - name: Build & test agent
       run: |
         pushd ${workdir}/agent_server/
         cargo build
