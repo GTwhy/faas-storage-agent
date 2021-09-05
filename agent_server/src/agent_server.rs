@@ -16,10 +16,9 @@ use std::collections::HashMap;
 use std::process::exit;
 use std::sync::{Mutex, Arc};
 use std::time::SystemTime;
-use std::{io, thread};
+use std::thread;
 use faas_storage_agent::*;
 use faas_storage_agent_grpc::*;
-use futures::channel::oneshot;
 use futures::executor::block_on;
 use futures::prelude::*;
 use grpcio::{Environment, Error, RpcContext, ServerBuilder, UnarySink};
@@ -364,7 +363,7 @@ fn main() {
         exit(0);
     }).expect("Error setting Ctrl-C handler");
     loop {
-        thread::sleep_ms(100000);
+        thread::sleep(100000);
     }
 }
 
@@ -374,8 +373,8 @@ fn validate_token(_token: &str) -> Result<AuthenticationInfo, bool> {
     let client_secret = env!("sas_client_secret");
     let credential= format!("{}:{}", client_id, client_secret);
     //println!("{}",credential);
-    let credential_base64 = base64::encode(credential.as_bytes());
-    let auth_content = "Basic ".to_string() + &credential_base64;
+    // let credential_base64 = base64::encode(credential.as_bytes());
+    // let auth_content = "Basic ".to_string() + &credential_base64;
     // let body = "token:".to_string() + _token;
     // let req_client = reqwest::blocking::Client::new();
     // let res = req_client.post("http://127.0.0.1:10087/o/introspect/")
