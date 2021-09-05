@@ -11,7 +11,7 @@ use std::collections::HashMap;
  */
  
 use redis::Commands;
-use crate::{faas_storage_agent::*};
+use crate::faas_storage_agent::*;
 use crate::storage_ns::{Backend, BackendNamespace, Namespace};
 
 #[derive(PartialEq,Clone,Default,Debug)]
@@ -151,4 +151,81 @@ pub fn delete(req: &data_req, _ns: Namespace) -> data_resp {
         resp.set_err_info(String::from("It doesn't exist"));
     }
     resp
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use crate::redis_sa::*;
+    use crate::storage_ns::*;
+    use crate::faas_storage_agent;
+
+    fn get_test_data_req(key: &str, value: &str) -> data_req{
+        let mut req = data_req::new();
+        req.set_key(key.to_string());
+        req.set_value(value.as_bytes().to_vec());
+        return req;
+    }
+
+    #[test]
+    fn connect_ns_test() {
+        let md = Metadata::default();
+        let mut nsm = NsManager::new(&md);
+        let backend = Backend::Redis(Metadata::default());
+        nsm.new_backend_ns("connect_test_client_id", "connect_test_ns_name", backend);
+        let mut resp = ns_resp::new();
+        if let Ok(ns) = nsm.get_backend_ns("connect_test_client_id", "connect_test_ns_name"){
+            resp = connect_ns(ns.clone());
+            assert_eq!(resp.get_err_code(), 0, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            nsm.delete_backend_ns(&ns);
+        }else{
+            panic!("NsManager get backend namespace failed");
+        }
+    }
+
+    #[test]
+    fn set_get_test(){
+        let md = Metadata::default();
+        let mut nsm = NsManager::new(&md);
+        let backend = Backend::Redis(Metadata::default());
+        nsm.new_backend_ns("set_get_test_client_id", "set_get_test_ns_name", backend);
+        let mut resp = data_resp::default();
+        let req = get_test_data_req("set_get_test_key", "set_get_test_value");
+        if let Ok(ns) = nsm.get_backend_ns("set_get_test_client_id", "set_get_test_ns_name"){
+            resp = set(&req, ns.clone());
+            assert_eq!(resp.get_err_code(), 0, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            resp = get(&req, ns.clone());
+            assert_eq!(resp.get_value(), "set_get_test_value".as_bytes(), "err value:{:?}", resp.get_value());
+            assert_eq!(resp.get_err_code(), 0, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            nsm.delete_backend_ns(&ns);
+        }else{
+            panic!("NsManager get backend namespace failed");
+        }
+    }
+
+    #[test]
+    fn exists_delete_test(){
+        let md = Metadata::default();
+        let mut nsm = NsManager::new(&md);
+        let backend = Backend::Redis(Metadata::default());
+        nsm.new_backend_ns("exists_delete_test_client_id", "exists_delete_test_ns_name", backend);
+        let mut resp = data_resp::default();
+        let req = get_test_data_req("exists_delete_test_key", "exists_delete_test_value");
+        if let Ok(ns) = nsm.get_backend_ns("exists_delete_test_client_id", "exists_delete_test_ns_name"){
+            resp = set(&req, ns.clone());
+            assert_eq!(resp.get_err_code(), 0, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            resp = exists(&req, ns.clone());
+            assert_eq!(resp.get_err_code(), 0, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            resp = delete(&req, ns.clone());
+            assert_eq!(resp.get_err_code(), 0, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            resp = exists(&req, ns.clone());
+            assert_eq!(resp.get_err_code(), 1, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            resp = delete(&req, ns.clone());
+            assert_eq!(resp.get_err_code(), 1, "err_code:{}  err_info:{}", resp.get_err_code(), resp.get_err_info());
+            nsm.delete_backend_ns(&ns);
+        }else{
+            panic!("NsManager get backend namespace failed");
+        }
+    }
 }
