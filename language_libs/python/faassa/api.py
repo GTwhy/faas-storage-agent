@@ -26,11 +26,11 @@ class Agent:
         # TODO: STL support
         self.channel = grpc.insecure_channel(self.agent_url)
         self.stub = faas_storage_agent_pb2_grpc.faas_storage_agentStub(self.channel)
-        self.token = self.get_ns_auth()
+        self.token = self.get_token_by_env()
         print("token : ", self.token)
 
 
-    def get_ns_auth(self):
+    def get_token_by_id_secret(self):
         # TODO: Using a temp user-token pair now, and the real auth api will come soon.
         client_id = os.environ['sa_client_id']
         client_secret = os.environ['sa_client_secret']
@@ -42,6 +42,9 @@ class Agent:
         resp = requests.post(self.auth_url,data=data, headers=headers)
         token = json.loads(resp.text).get('access_token')
         return token
+
+    def get_token_by_env(self):
+        return os.environ['sa_token']
 
     def get_agent_url(self):
         # TODO: Using a remote storage agent now, and the local agnet will come soon.
