@@ -15,13 +15,14 @@ mod faas_storage_agent_grpc;
 use std::collections::HashMap;
 use std::process::exit;
 use std::sync::{Mutex, Arc};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use std::thread;
 use faas_storage_agent::*;
 use faas_storage_agent_grpc::*;
 use futures::executor::block_on;
 use futures::prelude::*;
 use grpcio::{Environment, Error, RpcContext, ServerBuilder, UnarySink};
+use hyper::{Client, Body, Method, Request, Uri};
 use storage_ns::Namespace;
 use crate::storage_ns::Backend;
 
@@ -363,7 +364,7 @@ fn main() {
         exit(0);
     }).expect("Error setting Ctrl-C handler");
     loop {
-        thread::sleep(100000);
+        thread::sleep(Duration::from_secs(10000));
     }
 }
 
@@ -372,17 +373,19 @@ fn validate_token(_token: &str) -> Result<AuthenticationInfo, bool> {
     let client_id = env!("sas_client_id");
     let client_secret = env!("sas_client_secret");
     let credential= format!("{}:{}", client_id, client_secret);
-    //println!("{}",credential);
-    // let credential_base64 = base64::encode(credential.as_bytes());
-    // let auth_content = "Basic ".to_string() + &credential_base64;
-    // let body = "token:".to_string() + _token;
-    // let req_client = reqwest::blocking::Client::new();
-    // let res = req_client.post("http://127.0.0.1:10087/o/introspect/")
-    //     .body(body)
-    //     .header("Authorization ", auth_content)
-    //     .send()
-    //     .expect("Send Err");
-    // println!("res : {:?}", res);
+    println!("{}",credential);
+    let credential_base64 = base64::encode(credential.as_bytes());
+    let auth_content = "Basic ".to_string() + &credential_base64;
+    let body = "token:".to_string() + _token;
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("http://39.105.134.149:10087/o/introspect/")
+        .header("Authorization ", auth_content)
+        .body(Body::from(body))
+        .expect("request builder");
+    let req_client = Client::new();
+    let res = block_on(req_client.request(req));
+    println!("res : {:?}", res);
     //TODO: Replace the tmp rv
     Ok(AuthenticationInfo{
         client_id: "test".to_string(),
