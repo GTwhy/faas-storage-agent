@@ -36,10 +36,11 @@ impl Metadata {
             port: 6379
         }
     }
-    pub fn get_local_url(&self) -> String{
-        let url = format!("redis://{}:{}", self.hostname, self.port.to_string());
-        url
-    }
+
+    // pub fn get_local_url(&self) -> String{
+    //     let url = format!("redis://{}:{}", self.hostname, self.port.to_string());
+    //     url
+    // }
 
     pub fn get_remote_url(&self) -> String{
         // url format redis://[<username>][:<password>@]<hostname>[:port][/<db>]
