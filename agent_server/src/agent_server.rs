@@ -22,7 +22,8 @@ use faas_storage_agent_grpc::*;
 use futures::executor::block_on;
 use futures::prelude::*;
 use grpcio::{Environment, Error, RpcContext, ServerBuilder, UnarySink};
-use hyper::{Client, Body, Method, Request, Uri};
+use hyper::{Body, Client, Method, Request, Response};
+use json::{self, JsonValue};
 use storage_ns::Namespace;
 use crate::storage_ns::Backend;
 
@@ -31,17 +32,36 @@ struct ClientInfo{
     token: String,
     client_id: String,
     //Unix timestamp
-    lifetime: u64,
-    scope: Vec<String>,
+    expires: u64,
+    scope: Scope,
     current_ns: Namespace
 }
 
-#[derive(Default,Clone)]
+#[derive(PartialEq,Default,Clone,Debug)]
+struct DataOpt{
+    set: bool,
+    get: bool,
+    delete: bool,
+    exists: bool,
+}
+
+#[derive(PartialEq,Default,Clone,Debug)]
+struct NsOpt{
+    create_ns: bool,
+    delete_ns: bool,
+}
+#[derive(PartialEq,Default,Clone,Debug)]
+struct Scope{
+    ns_opt: NsOpt,
+    data_opt: HashMap<String, DataOpt>
+}
+
+#[derive(PartialEq,Default,Clone,Debug)]
 struct AuthenticationInfo{
     client_id: String,
-    lifetime: u64,
+    expires: u64,
     //TODO: Init this field and check it in operations.
-    scope: Vec<String>
+    scope: Scope
 }
 
 #[derive(Clone,Default,Debug)]
@@ -60,7 +80,7 @@ impl AgentService {
         map.insert(token.to_string(), ClientInfo{
             token: token.to_string(),
             client_id: auth_info.client_id,
-            lifetime: auth_info.lifetime,
+            expires: auth_info.expires,
             scope: auth_info.scope,
             current_ns: ns.clone(),
         });
@@ -109,7 +129,7 @@ impl AgentService {
         if let Some(client) = map.get(&token.to_string()){
             if let Ok(dur) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH){
                 let now = dur.as_secs();
-                if now < client.lifetime {
+                if now < client.expires {
                     return Ok(client.to_owned())
                 }
                 else {
@@ -182,29 +202,37 @@ impl FaasStorageAgent for AgentService {
         let mut nsm = storage_ns::NsManager::new(&md);
         //Hit cache
         if let Ok(client_info) = self.check_get_client_cache(req.get_token(), req.get_name()) {
-            match self.backend_name.as_str() {
-                "Redis" => {
-                    if nsm.new_backend_ns(client_info.client_id.as_str(),  req.get_name(), backend){
-                        resp.set_err_code(0);
-                        resp.set_err_info("Create ns successfully".to_string());
-                    }
-                    else {
-                        resp = new_err_ns_resp(3, "can not create new namespace")
-                    }
-                },
-                _ => resp = new_err_ns_resp(4, "Error backen_name"),
+            if check_ns_scope( &client_info.scope, "create_ns"){
+                match self.backend_name.as_str() {
+                    "Redis" => {
+                        if nsm.new_backend_ns(client_info.client_id.as_str(),  req.get_name(), backend){
+                            resp.set_err_code(0);
+                            resp.set_err_info("Create ns successfully".to_string());
+                        }
+                        else {
+                            resp = new_err_ns_resp(3, "can not create new namespace")
+                        }
+                    },
+                    _ => resp = new_err_ns_resp(4, "Error backen_name"),
+                }
+            }else{
+                resp = new_err_ns_resp(5, "Err scope");
             }
         }
         //Cache miss
         else {
             //Validate token successfully
             if let Ok(auth_info) = validate_token(req.get_token()) {
-                if nsm.new_backend_ns(auth_info.client_id.as_str(),  req.get_name(), backend){
-                    resp.set_err_code(0);
-                    resp.set_err_info("create ns successfully".to_string());
-                }
-                else {
-                    resp = new_err_ns_resp(3, "can not create this namespace")
+                if check_ns_scope(&auth_info.scope, "create_ns"){
+                    if nsm.new_backend_ns(auth_info.client_id.as_str(),  req.get_name(), backend){
+                        resp.set_err_code(0);
+                        resp.set_err_info("create ns successfully".to_string());
+                    }
+                    else {
+                        resp = new_err_ns_resp(3, "can not create this namespace")
+                    }
+                }else {
+                    resp = new_err_ns_resp(5, "Err scope");
                 }
             }
             else {
@@ -225,25 +253,33 @@ impl FaasStorageAgent for AgentService {
         let mut nsm = storage_ns::NsManager::new(&md);
         //Hit cache
         if let Ok(client_info) = self.check_get_client_cache(req.get_token(), req.get_name()) {
-            nsm.delete_backend_ns(&client_info.current_ns);
+            if check_ns_scope(&client_info.scope, "delete_ns"){
+                nsm.delete_backend_ns(&client_info.current_ns);
+            }else {
+                resp = new_err_ns_resp(5, "Err scope");
+            }
         }
         //Cache miss
         else {
             //Validate token successfully
             if let Ok(auth_info) = validate_token(req.get_token()) {
-                //Cache ns info
-                if let Ok(ns) = nsm.get_backend_ns(auth_info.client_id.as_str(),  req.get_name()){
-                    self.cache_client_info(req.get_token(), auth_info.clone(), &ns);
-                    if nsm.delete_backend_ns(&ns) {
-                        resp.set_err_code(0);
-                        resp.set_err_info("delete ns successfully".to_string());
+                if check_ns_scope(&auth_info.scope, "delete_ns"){
+                    //Cache ns info
+                    if let Ok(ns) = nsm.get_backend_ns(auth_info.client_id.as_str(),  req.get_name()){
+                        self.cache_client_info(req.get_token(), auth_info.clone(), &ns);
+                        if nsm.delete_backend_ns(&ns) {
+                            resp.set_err_code(0);
+                            resp.set_err_info("delete ns successfully".to_string());
+                        }
+                        else {
+                            resp = new_err_ns_resp(3, "can delete this namespace")
+                        }
                     }
                     else {
-                        resp = new_err_ns_resp(3, "can delete this namespace")
+                        resp = new_err_ns_resp(1, "can not find this namespace")
                     }
-                }
-                else {
-                    resp = new_err_ns_resp(1, "can not find this namespace")
+                }else {
+                    resp = new_err_ns_resp(5, "Err scope");
                 }
             }
             else {
@@ -262,9 +298,13 @@ impl FaasStorageAgent for AgentService {
         let resp: data_resp;
         //Hit cache
         if let Ok(client_info) = self.get_client_cache(req.get_token()) {
-            match self.backend_name.as_str() {
-                "Redis" => resp = redis_sa::set(&req, client_info.current_ns),
-                _ => resp = new_err_data_resp(4, "Error backen_name"),
+            if check_data_scope(client_info.current_ns.name.as_str(), &client_info.scope, "set"){
+                match self.backend_name.as_str() {
+                    "Redis" => resp = redis_sa::set(&req, client_info.current_ns),
+                    _ => resp = new_err_data_resp(4, "Error backen_name"),
+                }
+            }else {
+                resp = new_err_data_resp(5, "Err scope");
             }
         }
         //Cache miss
@@ -283,9 +323,13 @@ impl FaasStorageAgent for AgentService {
         let resp: data_resp;
         //Hit cache
         if let Ok(client_info) = self.get_client_cache(req.get_token()) {
-            match self.backend_name.as_str() {
-                "Redis" => resp = redis_sa::get(&req, client_info.current_ns),
-                _ => resp = new_err_data_resp(4, "Error backen_name"),
+            if check_data_scope(client_info.current_ns.name.as_str(), &client_info.scope, "get"){
+                match self.backend_name.as_str() {
+                    "Redis" => resp = redis_sa::get(&req, client_info.current_ns),
+                    _ => resp = new_err_data_resp(4, "Error backen_name"),
+                }
+            }else {
+                resp = new_err_data_resp(5, "Err scope");
             }
         }
         //Cache miss
@@ -304,9 +348,13 @@ impl FaasStorageAgent for AgentService {
         let resp: data_resp;
         //Hit cache
         if let Ok(client_info) = self.get_client_cache(req.get_token()) {
-            match self.backend_name.as_str() {
-                "Redis" => resp = redis_sa::delete(&req, client_info.current_ns),
-                _ => resp = new_err_data_resp(4, "Error backen_name"),
+            if check_data_scope(client_info.current_ns.name.as_str(), &client_info.scope, "delete"){
+                match self.backend_name.as_str() {
+                    "Redis" => resp = redis_sa::delete(&req, client_info.current_ns),
+                    _ => resp = new_err_data_resp(4, "Error backen_name"),
+                }
+            }else {
+                resp = new_err_data_resp(5, "Err scope");
             }
         }
         //Cache miss
@@ -325,9 +373,13 @@ impl FaasStorageAgent for AgentService {
         let resp: data_resp;
         //Hit cache
         if let Ok(client_info) = self.get_client_cache(req.get_token()) {
-            match self.backend_name.as_str() {
-                "Redis" => resp = redis_sa::exists(&req, client_info.current_ns),
-                _ => resp = new_err_data_resp(4, "Error backen_name"),
+            if check_data_scope(client_info.current_ns.name.as_str(), &client_info.scope, "exists"){
+                match self.backend_name.as_str() {
+                    "Redis" => resp = redis_sa::exists(&req, client_info.current_ns),
+                    _ => resp = new_err_data_resp(4, "Error backen_name"),
+                }
+            }else {
+                resp = new_err_data_resp(5, "Err scope");
             }
         }
         //Cache miss
@@ -368,28 +420,133 @@ fn main() {
     }
 }
 
+fn check_ns_scope(client_scope: &Scope, required_scope: &str) -> bool{
+    match required_scope {
+        "create_ns" => return client_scope.ns_opt.create_ns,
+        "delete_ns" => return client_scope.ns_opt.delete_ns,
+        _ => return false
+    }
+}
 
-fn validate_token(_token: &str) -> Result<AuthenticationInfo, bool> {
+fn check_data_scope(ns_name: &str, client_scope: &Scope, required_scope: &str) -> bool{
+    if let Some(data_opt) = client_scope.data_opt.get(ns_name){   
+        match required_scope {
+            "get" => return data_opt.get,
+            "set" => return data_opt.set,
+            "delete" => return data_opt.delete,
+            "exists" => return data_opt.exists,
+            _ => return false
+        }
+    }else {
+        return false
+    }
+}
+
+fn line_to_vec(line: &str) -> Vec<String> {
+    line.split_whitespace().map(str::to_string).collect()
+}
+
+fn get_scope_from_lines(parsed: &JsonValue) -> Scope{
+    println!("{}", parsed["scope"]);
+    let mut scope = Scope::default();
+    let lines = parsed["scope"].as_str().unwrap().lines();
+    for line in lines {
+        let v = line_to_vec(line);
+        if v[0] == "ns" {
+            if line.contains("create_ns") {
+                scope.ns_opt.create_ns = true;
+            }
+            if line.contains("delete_ns") {
+                scope.ns_opt.delete_ns = true;
+            }
+        }else if v[0] == "data" {
+            let mut data_opt = DataOpt::default();
+            let ns_name = v[1].to_string();
+            if line.contains("get"){
+                data_opt.get = true;
+            }
+            if line.contains("set"){
+                data_opt.set = true;
+            }
+            if line.contains("delete"){
+                data_opt.delete = true;
+            }
+            if line.contains("exists"){
+                data_opt.exists = true;
+            }
+            scope.data_opt.insert(ns_name, data_opt);
+        }else{
+            println!("Err Scope");
+        }
+       
+    }
+    scope
+}
+
+fn get_auth_info_from_response(res: Response<Body>) -> Result<AuthenticationInfo, bool>{
+    let bytes = block_on(hyper::body::to_bytes(res)).unwrap();
+    let result = String::from_utf8(bytes.into_iter().collect()).unwrap();
+    let parsed = json::parse(result.as_str()).unwrap();
+    let scope = get_scope_from_lines(&parsed);
+    let auth_info = AuthenticationInfo{
+        client_id: parsed["client_id"].to_string(),
+        expires: parsed["exp"].as_u64().unwrap(),
+        scope
+    };
+    println!("{:?}", auth_info);
+    Ok(auth_info)
+}
+
+#[tokio::main]
+async fn validate_token(_token: &str) -> Result<AuthenticationInfo, bool> {
     let client_id = env!("sas_client_id");
     let client_secret = env!("sas_client_secret");
     let credential= format!("{}:{}", client_id, client_secret);
-    println!("{}",credential);
-    let credential_base64 = base64::encode(credential.as_bytes());
+    let credential_base64 = base64::encode(credential);
     let auth_content = "Basic ".to_string() + &credential_base64;
-    let body = "token:".to_string() + _token;
+    let body = format!("token={}", _token);
     let req = Request::builder()
         .method(Method::POST)
         .uri("http://39.105.134.149:10087/o/introspect/")
-        .header("Authorization ", auth_content)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Accept", "application/json")
+        .header("Authorization", auth_content)
         .body(Body::from(body))
         .expect("request builder");
     let req_client = Client::new();
-    let res = block_on(req_client.request(req));
-    println!("res : {:?}", res);
-    //TODO: Replace the tmp rv
-    Ok(AuthenticationInfo{
-        client_id: "test".to_string(),
-        lifetime: 1728392084,
-        scope: vec!["test".to_string()]
-    })
+    let res = block_on(req_client.request(req)).expect("err resp");
+    get_auth_info_from_response(res)
+}
+
+#[test]
+fn validate_token_test(){
+    validate_token("test_token");
+}
+
+#[test]
+fn scope_check_test(){
+    let mut test_scope = Scope::default();
+    test_scope.data_opt.insert("test_ns".to_string(), DataOpt::default());
+    assert!(!check_data_scope("test_ns", &test_scope, "set"));
+    assert!(!check_data_scope("test_ns", &test_scope, "get"));
+    assert!(!check_data_scope("test_ns", &test_scope, "delete"));
+    assert!(!check_data_scope("test_ns", &test_scope, "exists"));
+    assert!(!check_ns_scope(&test_scope, "create_ns"));
+    assert!(!check_ns_scope(&test_scope, "delete_ns"));
+    test_scope.ns_opt.create_ns = true;
+    test_scope.ns_opt.delete_ns = true;
+    let dpt = DataOpt{
+        get: true,
+        set: true,
+        delete: true,
+        exists: true
+    };
+    test_scope.data_opt.remove("test_ns");
+    test_scope.data_opt.insert("test_ns".to_string(), dpt);
+    assert!(check_data_scope("test_ns", &test_scope, "set"));
+    assert!(check_data_scope("test_ns", &test_scope, "get"));
+    assert!(check_data_scope("test_ns", &test_scope, "delete"));
+    assert!(check_data_scope("test_ns", &test_scope, "exists"));
+    assert!(check_ns_scope(&test_scope, "create_ns"));
+    assert!(check_ns_scope(&test_scope, "delete_ns"));
 }
