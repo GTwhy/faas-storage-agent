@@ -19,7 +19,7 @@ redis = "0.21.0"
 base64 = "0.13.0"
 ctrlc = "3.2.0"
 hyper = { version = "0.14", features = ["full"] }
-tokio = { version = "1.11.0", features = ["full"] }
-
+tokio = { version = "1", features = ["full"] }
+json = "0.12.4"
 [build-dependencies]
 protoc-grpcio = "3.0.0"
