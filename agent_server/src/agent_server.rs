@@ -32,7 +32,8 @@ struct ClientInfo{
     token: String,
     client_id: String,
     //Unix timestamp
-    expires: u64,
+    auth_expires: u64,
+    cache_expires: u64,
     scope: Scope,
     current_ns: Namespace
 }
@@ -80,7 +81,8 @@ impl AgentService {
         map.insert(token.to_string(), ClientInfo{
             token: token.to_string(),
             client_id: auth_info.client_id,
-            expires: auth_info.expires,
+            auth_expires: auth_info.expires,
+            cache_expires: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() + 10,
             scope: auth_info.scope,
             current_ns: ns.clone(),
         });
@@ -129,7 +131,7 @@ impl AgentService {
         if let Some(client) = map.get(&token.to_string()){
             if let Ok(dur) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH){
                 let now = dur.as_secs();
-                if now < client.expires {
+                if now < client.auth_expires && now < client.cache_expires {
                     return Ok(client.to_owned())
                 }
                 else {
