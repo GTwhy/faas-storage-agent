@@ -124,7 +124,7 @@ if __name__ == '__main__':
         print("delete err_info:", i)
     
     c, i = a.exists(key)
-    if c != 0:
+    if c == 0:
         print("exists err_info:", i)
     
     c, i = a.delete_ns(ns_name)
