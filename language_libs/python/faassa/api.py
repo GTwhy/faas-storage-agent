@@ -75,7 +75,7 @@ class Agent:
     def get(self, key):
         req = faas_storage_agent_pb2.data_req(key = key, token = self.token)
         resp = self.stub.get(req)
-        return resp.err_code , resp.err_info
+        return resp.err_code , resp.err_info, resp.value
 
     
     def delete(self, key):
