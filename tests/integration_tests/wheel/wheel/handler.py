@@ -28,7 +28,7 @@ def handle(req):
         print("exists err_info:", i)
         return req
 
-    c,v = a.get(key)
+    c, i, v = a.get(key)
     if c != 0:
         print("get err_info:", i)
         return req
