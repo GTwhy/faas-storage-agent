@@ -1,12 +1,3 @@
-'''
-Author: why
-Date: 2021-07-18 11:00:18
-LastEditTime: 2021-08-13 19:48:51
-LastEditors: why
-Description: 
-FilePath: /master/language_libs/python/faas-storage-agent/api.py
-
-'''
 from logging import critical, setLoggerClass
 import grpc
 from requests.api import head
@@ -60,60 +51,82 @@ class Agent:
     def connect_ns(self, ns_name):
         req = faas_storage_agent_pb2.ns_req(name = ns_name, token =  self.token)
         resp = self.stub.connect_ns(req)
-        print(resp.err_info)
-        if resp.err_code == 0: 
-            self.ns = ns_name
-        return resp.err_code
+        return resp.err_code , resp.err_info
 
     def create_ns(self, ns_name):
         req = faas_storage_agent_pb2.ns_req(name = ns_name, token =  self.token)
         resp = self.stub.create_ns(req)
-        print(resp.err_info)
-        return resp.err_code
+        return resp.err_code , resp.err_info
+
 
     def delete_ns(self, ns_name):
         req = faas_storage_agent_pb2.ns_req(name = ns_name, token =  self.token)
         resp = self.stub.delete_ns(req)
-        print(resp.err_info)
-        return resp.err_code
+        return resp.err_code , resp.err_info
+
 
 # data operating interfaces
     def set(self, key, value):
         req = faas_storage_agent_pb2.data_req(key = key, value = value, token = self.token)
         resp = self.stub.set(req)
-        print(resp.err_info)
-        return resp.err_code
+        return resp.err_code , resp.err_info
+
 
     def get(self, key):
         req = faas_storage_agent_pb2.data_req(key = key, token = self.token)
         resp = self.stub.get(req)
-        print(resp.err_info)
-        return resp.err_code, resp.value
+        return resp.err_code , resp.err_info
+
     
     def delete(self, key):
         req = faas_storage_agent_pb2.data_req(key = key, token = self.token)
         resp = self.stub.delete(req)
-        print(resp.err_info)
-        return resp.err_code
+        return resp.err_code , resp.err_info
+
 
     def exists(self, key):
         req = faas_storage_agent_pb2.data_req(key = key, token = self.token)
         resp = self.stub.exists(req)
-        print(resp.err_info)
-        return resp.err_code
+        return resp.err_code , resp.err_info
 
 if __name__ == '__main__':
     a = Agent()
     ns_name = "test_ns"
-    a.create_ns(ns_name)
-    a.connect_ns(ns_name)
     rand = str(random.randint(1,1000))
     key = "test_key_" + rand
     value = ("test_value" + rand).encode()
-    a.set(key, value)
-    a.exists(key)
+
+    c, i = a.create_ns(ns_name)
+    if c != 0:
+        print("create_ns err_info:", i)
+
+    c, i = a.connect_ns(ns_name)
+    if c != 0:
+        print("connect_ns err_info:", i)
+    
+    c, i = a.set(key, value)
+    if c != 0:
+        print("set err_info:", i)
+
+    c, i = a.exists(key)
+    if c != 0:
+        print("exists err_info:", i)
+
     c,v = a.get(key)
-    print(v.decode())
-    a.delete(key)
-    a.exists(key)
-    a.delete_ns(ns_name)
+    if c != 0:
+        print("get err_info:", i)
+
+    if v.decode() != value:
+        print("get err value : ", v.decode())
+    
+    c, i = a.delete(key)
+    if c != 0:
+        print("delete err_info:", i)
+    
+    c, i = a.exists(key)
+    if c != 0:
+        print("exists err_info:", i)
+    
+    c, i = a.delete_ns(ns_name)
+    if c != 0:
+        print("delete_ns err_info:", i)
