@@ -33,7 +33,7 @@ def handle(req):
         print("get err_info:", i)
         return req
 
-    if v.decode() != value:
+    if v != value:
         print("get err value : ", v.decode())
         return req
 
