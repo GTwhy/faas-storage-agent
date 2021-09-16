@@ -55,7 +55,7 @@ jobs:
 
     - name: Upload integration tests to openfaas
       run: |
-        pushd ${workdir}/tests/integration_tests/
+        pushd ${workdir}/tests/integration_tests/wheel
         sudo faas-cli up -f wheel.yml
         popd
 
