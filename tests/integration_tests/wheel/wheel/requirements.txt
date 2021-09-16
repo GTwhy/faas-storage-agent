@@ -1,0 +1,3 @@
+faassa >= 0.1.6
+grpcio
+grpcio_tools

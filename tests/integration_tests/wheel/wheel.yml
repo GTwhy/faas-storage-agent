@@ -1,0 +1,17 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+functions:
+  wheel:
+    lang: python3
+    handler: ./wheel
+    image: whysdocker/wheel:latest
+    build_options:
+    - dev
+    environment:
+        agent_url: "localhost:10086"
+        auth_url: "http://39.105.134.149:10087/o/token/"
+        sa_token: "test_token"
+        sa_client_id: "LkrnLMAoKhfbcUDxqdvysUj3DGvWymzk8vPAPRgQ"
+        sa_client_secret: "grPyHYtMUh1Lv9pdn07MMbTXMiVCEdKdEGz4X6SAHBjw2G7VEVmVot9gURFUfgytvMb9DE0T2ahaz4QJk80MUhvZT0Ib7Bacxkb9BgoyIJEMAc4Iusj1jdi95aSYlyHJ"
