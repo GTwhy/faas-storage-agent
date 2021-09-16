@@ -43,7 +43,7 @@ def handle(req):
         return req
 
     c, i = a.exists(key)
-    if c != 0:
+    if c == 0:
         print("exists err_info:", i)
         return req
 
