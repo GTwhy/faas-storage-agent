@@ -53,7 +53,13 @@ jobs:
         sudo kubectl create -f $yaml
         popd
 
-    - name: Integrated test by openfaas
+    - name: Upload integration tests to openfaas
+      run: |
+        pushd ${workdir}/tests/integration_tests/
+        sudo faas-cli up -f wheel.yml
+        popd
+
+    - name: Integration testing.
       run: |
         sleep 10s
         echo | faas-cli invoke wheel
