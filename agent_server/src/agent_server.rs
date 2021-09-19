@@ -35,7 +35,8 @@ struct ClientInfo{
     auth_expires: u64,
     cache_expires: u64,
     scope: Scope,
-    current_ns: Namespace
+    current_ns: Namespace,
+    clear: bool
 }
 
 #[derive(PartialEq,Default,Clone,Debug)]
@@ -84,6 +85,7 @@ impl AgentService {
             cache_expires: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() + 10,
             scope: auth_info.scope,
             current_ns: ns.clone(),
+            clear: false
         });
     }
 
@@ -100,6 +102,11 @@ impl AgentService {
         else {
             Err(false)
         }
+    }
+
+    fn clear_client_cache(&mut self, token: &str) {
+        let mut map = self.client_cache.lock().unwrap();
+        map.remove(token);
     }
 
     fn check_get_client_cache(&mut self, token: &str, ns_name: &str) -> Result<ClientInfo, bool> {
@@ -130,7 +137,7 @@ impl AgentService {
         if let Some(client) = map.get(&token.to_string()){
             if let Ok(dur) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH){
                 let now = dur.as_secs();
-                if now < client.auth_expires && now < client.cache_expires {
+                if now < client.auth_expires && now < client.cache_expires && !client.clear {
                     return Ok(client.to_owned())
                 }
                 else {
@@ -256,6 +263,7 @@ impl FaasStorageAgent for AgentService {
         if let Ok(client_info) = self.check_get_client_cache(req.get_token(), req.get_name()) {
             if check_ns_scope(&client_info.scope, "delete_ns"){
                 nsm.delete_backend_ns(&client_info.current_ns);
+                self.clear_client_cache(&client_info.token);
             }else {
                 resp = new_err_ns_resp(5, "Err scope");
             }
