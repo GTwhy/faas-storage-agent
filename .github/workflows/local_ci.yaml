@@ -61,5 +61,5 @@ jobs:
 
     - name: Integration testing.
       run: |
-        sleep 10s
+        sleep 20s
         echo | faas-cli invoke wheel
