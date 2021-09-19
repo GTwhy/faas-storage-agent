@@ -139,17 +139,24 @@ pub fn get(req: &data_req, _ns: Namespace) -> data_resp {
     let rv = client.get(get_prefix(&_ns) + req.get_key());
     match rv {
         Ok(value) => {
-            resp.set_err_code(0);
-            resp.set_value(value);
-            resp.set_err_info(String::from("get successfully"));
+            match value {
+                Some(vec) => {
+                    resp.set_err_code(0);
+                    resp.set_value(vec);
+                    resp.set_err_info(String::from("get successfully"));
+                },
+                None => {
+                    resp.set_err_code(1);
+                    resp.set_err_info(String::from("get None"));
+                }
+            }
         },
         Err(err) => {
             println!("{:?}", err);
-            resp.set_err_code(1);
+            resp.set_err_code(2);
             resp.set_err_info(String::from("get failed"));
         }
     }
-
     resp
 }
 
