@@ -4,7 +4,7 @@ setup(
     name='faassa',
     include_package_data=True,
     packages=find_packages(),
-    version='0.1.4',
+    version='0.1.8',
     description='Faas-storage-agent apis',
     author='why',
     license='MIT',
