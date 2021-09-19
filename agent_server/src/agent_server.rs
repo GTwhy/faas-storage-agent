@@ -61,7 +61,6 @@ struct Scope{
 struct AuthenticationInfo{
     client_id: String,
     expires: u64,
-    //TODO: Init this field and check it in operations.
     scope: Scope
 }
 
