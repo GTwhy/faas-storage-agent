@@ -47,9 +47,19 @@ def handle(req):
         print("exists err_info:", i)
         return req
 
+    c, i, v = a.get(key)
+    if c == 0:
+        print("get err_info:", i)
+        return req
+
     c, i = a.delete_ns(ns_name)
     if c != 0:
         print("delete_ns err_info:", i)
+        return req
+
+    c, i = a.connect_ns(ns_name)
+    if c == 0:
+        print("connect_ns err_info:", i)
         return req
     
     print("ok")
