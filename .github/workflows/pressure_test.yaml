@@ -34,7 +34,6 @@ jobs:
         arch=`arch`
         image_name="whysdocker/sa-${arch}:latest"
         pushd ${workdir}/docker/agent/
-        rm ./app/agent_server
         mv ${workdir}/agent_server/target/debug/agent_server ./app/
         sudo docker build -t $image_name .
         sudo docker push $image_name
