@@ -1,0 +1,61 @@
+name: Pressure_test
+
+on:
+  workflow_dispatch:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    runs-on: [self-hosted, linux, X64, master]
+    env:
+      workdir: /home/action/summer2021-151
+    steps:
+    - name: Git pull
+      run: |
+        pushd ${workdir}
+        git pull
+        popd
+
+    - name: Build & test agent
+      run: |
+        pushd ${workdir}/agent_server/
+        cargo build
+        cargo test
+        popd
+
+    - name: Login to Docker Hub
+      run: sudo docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push agent docker image
+      run: |
+        arch=`arch`
+        image_name="whysdocker/sa-${arch}:latest"
+        pushd ${workdir}/docker/agent/
+        rm ./app/agent_server
+        mv ${workdir}/agent_server/target/debug/agent_server ./app/
+        sudo docker build -t $image_name .
+        sudo docker push $image_name
+        popd
+      
+    - name: Update agent docker image in kubernetes
+      run: |
+        arch=`arch`
+        yaml="agent-ds-${arch}.yaml"
+        pushd ${workdir}/yaml/agent/
+        sudo kubectl delete daemonset sa-ds -n openfaas-fn
+        sudo kubectl create -f $yaml
+        popd
+
+    - name: Upload integration tests to openfaas
+      run: |
+        pushd ${workdir}/tests/pressure_tests/pt-1
+        sudo faas-cli up -f pt.yml
+        popd
+
+    - name: Integration testing.
+      run: |
+        sleep 20s
+        echo | faas-cli invoke wheel
