@@ -11,7 +11,7 @@ jobs:
   ci:
     runs-on: [self-hosted, linux, X64, master]
     env:
-      workdir: /home/action/summer2021-151
+      workdir: /home/action/faas-storage-agent
     steps:
     - name: Git pull
       run: |
