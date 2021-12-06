@@ -37,7 +37,7 @@ jobs:
         if [ -f "./app/agent_server" ]; then
         rm "./app/agent_server"
         fi
-        mv ${workdir}/agent_server/target/debug/agent_server ./app/
+        mv ${workdir}/agent_server/target/release/agent_server ./app/
         sudo docker build -t $image_name .
         sudo docker push $image_name
         popd
