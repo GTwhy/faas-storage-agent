@@ -22,7 +22,7 @@ jobs:
     - name: Build & test agent
       run: |
         pushd ${workdir}/agent_server/
-        cargo build
+        cargo build --release
         cargo test
         popd
 
@@ -57,7 +57,7 @@ jobs:
         sudo faas-cli up -f pt.yml
         popd
 
-    - name: Integration testing.
+    - name: Pressure testing.
       run: |
         sleep 20s
         echo | faas-cli invoke wheel

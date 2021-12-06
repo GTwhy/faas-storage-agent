@@ -6,7 +6,7 @@ functions:
   wheel:
     lang: python3
     handler: ./pt
-    image: whysdocker/wheel:latest
+    image: whysdocker/pt:latest
     build_options:
     - dev
     environment:
